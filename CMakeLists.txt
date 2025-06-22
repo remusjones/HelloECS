@@ -3,4 +3,10 @@ project(HelloECS)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(HelloECS main.cpp)
+add_executable(HelloECS main.cpp
+        ECS/ECS.h
+        ECS/HelloECS.cpp
+        ECS/HelloECS.h
+        CommonTypes.h)
+
+target_include_directories(HelloECS PRIVATE ${CMAKE_SOURCE_DIR})
