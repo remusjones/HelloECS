@@ -9,18 +9,44 @@
 #include <functional>
 #include <typeindex>
 
+template <class... Types>
+struct TypeList {
+    using TypeTuple = std::tuple<Types...>;
+
+    template <size_t Index>
+    using Get = std::tuple_element_t<Index, TypeTuple>;
+
+    static constexpr size_t size = sizeof...(Types);
+};
+
 template <typename... TComponentTypes>
 class IEntityView
 {
+private:
+    using ComponentTypes = TypeList<TComponentTypes...>;
+
+    template <size_t... Indices>
+    auto MakeComponentTuple(EntityHandle id, std::index_sequence<Indices...>)
+    {
+        // Get adjacent type store
+    }
+
+    template <typename Function>
+    void ForEachImpl(Function func)
+    {
+        // Iterate over entity list, and check against type list
+    }
+
 public:
+    using ForEachFunc = std::function<void(EntityHandle, TComponentTypes&...)>;
     static std::array<std::type_index, sizeof...(TComponentTypes)> GetTypeIndices()
     {
         return { std::type_index(typeid(TComponentTypes))... };
     }
 
-    void Each(const std::function<void(TComponentTypes&...)>& func)
+    void Each(ForEachFunc Function)
     {
-        // Todo: Implement view iteration logic
+        ForEachImpl(Function);
     }
 };
 
@@ -47,7 +73,7 @@ public:
     }
 
     template<typename... TComponentTypes>
-    inline IEntityView<TComponentTypes...>& GetView()
+    IEntityView<TComponentTypes...>& GetView()
     {
         return static_cast<TDerived*>(this)->template GetView<TComponentTypes...>();
     }

@@ -12,13 +12,13 @@
 #include <unordered_map>
 #include <vector>
 
-class IComponentInterfaceBase {
+class IComponentInterface {
 public:
-    virtual ~IComponentInterfaceBase() = default;
+    virtual ~IComponentInterface() = default;
 };
 
 template <typename TComponent>
-class ComponentContainer final : public IComponentInterfaceBase
+class ComponentContainer final : public IComponentInterface
 {
 public:
     ComponentContainer() = default;
@@ -41,7 +41,7 @@ public:
         return entityComponentMap.find(entity) != entityComponentMap.end();
     }
 
-    inline void Remove(const EntityHandle& entity)
+    void Remove(const EntityHandle& entity)
     {
         int cID = entityComponentMap[entity];
 
@@ -70,8 +70,8 @@ private:
     std::vector<EntityHandle> entities;
     std::vector<TComponent> components;
 
+    // todo: this is here until sparse impl
     std::unordered_map<EntityHandle, ComponentHandle> entityComponentMap;
-
 };
 
 class HelloECS final : public ECS<HelloECS>
@@ -85,7 +85,6 @@ public:
     template<typename TComponent>
     void AddComponent(EntityHandle entity, TComponent& component)
     {
-        // allocate here if not already allocated
         const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
         if (componentContainers.find(componentTypeId) == componentContainers.end())
         {
@@ -118,6 +117,8 @@ public:
 
 private:
     std::vector<EntityHandle> entities;
-    std::unordered_map<ComponentTypeId, std::unique_ptr<IComponentInterfaceBase>> componentContainers;
+
+    // todo: this is here until sparse impl
+    std::unordered_map<ComponentTypeId, std::unique_ptr<IComponentInterface>> componentContainers;
 };
 
