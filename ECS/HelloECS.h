@@ -13,12 +13,19 @@
 template<typename... TComponents>
 class EntityView;
 
-// Base type
+/*
+ * Base Component Container
+ * Used to store pointers, and for component ComponentContainer<T> upcasting
+ */
 class IComponentContainerInterface {
 public:
     virtual ~IComponentContainerInterface() = default;
 };
 
+/*
+ * Component Container
+ * Contains sparse arrays for contiguous component arrays
+ */
 template <typename TComponent>
 class ComponentContainer final : public IComponentContainerInterface
 {
@@ -27,6 +34,7 @@ public:
 
     TComponent& Add(const EntityHandle& entity, TComponent& component)
     {
+        // Adds the new component to the array, and adds the lookups
         size_t newEntityIndex = size;
 
         entityToIndexMap[entity] = newEntityIndex;
@@ -45,6 +53,7 @@ public:
 
     void Remove(const EntityHandle& entity)
     {
+        // Swaps the removed entity to the last index, and updates the maps
         size_t removeIndex = entityToIndexMap[entity];
         size_t lastIndex = --size;
         components[removeIndex] = std::move(components[lastIndex]);
@@ -71,6 +80,11 @@ private:
     size_t size;
 };
 
+/*
+ * Core ECS API
+ * Combines the "Entity Manager", and the "Component Manager" concepts
+ * Holds and operates on the Entity > Component Array lookups
+ */
 class HelloECS
 {
     template<typename...>
@@ -85,6 +99,7 @@ public:
     template <typename TComponent>
     void RegisterComponent()
     {
+        // Gets the hash code for the provided Type, and registers the container
         ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
         componentTypeMap.insert({componentTypeId, ++componentCount});
         componentContainers.insert({componentTypeId, std::make_shared<ComponentContainer<TComponent>>()});
@@ -93,12 +108,16 @@ public:
     template <typename TComponent>
     void AddComponent(const EntityHandle& entity, TComponent& component)
     {
+        // Branch and register the component if the type isn't already registered
+        // This could be explicit instead to avoid this runtime branch in a hotpath
         const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
         if (!componentContainers.contains(componentTypeId)) RegisterComponent<TComponent>();
 
+        // Add the component to the entity
         auto container = GetContainer<TComponent>();
         container->Add(activeEntities[activeEntityToIndexMap[entity]], component);
 
+        // Update the component mask
         ComponentMask& componentMask = GetComponentMask(entity);
         componentMask.set(componentTypeMap[componentTypeId], true);
     }
@@ -112,9 +131,11 @@ public:
     template <typename TComponent>
     void Remove(const EntityHandle& entity)
     {
+        // Removes the data to this entity
         auto container = GetContainer<TComponent>();
         container->Remove(entity);
 
+        // Update the component mask
         ComponentMask& componentMask = GetComponentMask(entity);
         componentMask.set(componentTypeMap[typeid(TComponent).hash_code()], false);
     }
@@ -127,12 +148,15 @@ public:
 
     EntityHandle CreateEntity()
     {
+        // Increment sizes, and entity count
         const EntityHandle newEntity = ++handleCount;
         const size_t newEntityIndex = ++activeEntitySize;
 
+        // Update arrays
         activeEntities[newEntityIndex] = newEntity;
         componentMasks[newEntityIndex] = ComponentMask();
 
+        // Update the index to entity map
         activeEntityToIndexMap[newEntity] = newEntityIndex;
 
         return newEntity;
@@ -145,14 +169,17 @@ public:
 
     void DestroyEntity(const EntityHandle& entity)
     {
+        // Find our entity, and our end entity
         const size_t targetIndex = activeEntityToIndexMap[entity];
         const size_t endIndex = activeEntitySize;
         const EntityHandle swappedEntity = activeEntities[endIndex];
 
+        // Swap the entity data to the end of the arrays
         // Intentionally allow swap here even if equal to avoid branching
         std::swap(activeEntities[targetIndex], activeEntities[endIndex]);
         std::swap(componentMasks[targetIndex], componentMasks[endIndex]);
 
+        // update our swapped entity map
         activeEntityToIndexMap[swappedEntity] = targetIndex;
         activeEntityToIndexMap.erase(entity);
 
@@ -160,6 +187,14 @@ public:
     }
 
 private:
+    template<typename TComponent>
+    std::shared_ptr<ComponentContainer<TComponent>> GetContainer()
+    {
+        // Lookup our Component Container by using our component hash code
+        const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
+        return std::static_pointer_cast<ComponentContainer<TComponent>>(componentContainers[componentTypeId]);
+    }
+
     EntityHandle handleCount;
     ComponentType componentCount;
 
@@ -171,15 +206,11 @@ private:
     std::unordered_map<ComponentTypeId, std::shared_ptr<IComponentContainerInterface>> componentContainers{};
     std::unordered_map<ComponentTypeId, ComponentType> componentTypeMap;
 
-    template<typename TComponent>
-    std::shared_ptr<ComponentContainer<TComponent>> GetContainer()
-    {
-        const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
-        return std::static_pointer_cast<ComponentContainer<TComponent>>(componentContainers[componentTypeId]);
-    }
 };
 
-
+/*
+ * Helper class for managing our tuple types
+ */
 template <class... ComponentTypes>
 struct ComponentTypeList {
     using ComponentTypeTuple = std::tuple<ComponentTypes...>;
@@ -190,6 +221,10 @@ struct ComponentTypeList {
     static constexpr size_t size = sizeof...(ComponentTypes);
 };
 
+/*
+ * Entity View
+ * Used for requesting views into the ECS, such as a "matches" query which can be iterated on 'Each'
+ */
 template <typename... TComponents>
 class EntityView
 {
@@ -207,6 +242,7 @@ private:
     template<size_t Index>
     auto GetPoolAt()
     {
+        // Gets the appropriate pool based on the input type index
         using ComponentType = typename ComponentTypeList<TComponents...>::template Get<Index>;
         return static_cast<ComponentContainer<ComponentType>*>(viewPools[Index]);
     }
@@ -214,24 +250,32 @@ private:
     template <size_t... Indices>
     auto MakeComponentTuple(EntityHandle id, std::index_sequence<Indices...>)
     {
+        // Combines all the component pools into a tuple for our each
         return std::forward_as_tuple((*GetPoolAt<Indices>()->Get(id))...);
     }
 
     template <typename Function>
     void ForEachImpl(Function func)
     {
+        // Get our sequence of indices for our view pool
         constexpr auto componentIds = std::make_index_sequence<sizeof...(TComponents)>{};
+
+        // Configure our views component mask
         ComponentMask viewComponentMask{};
         for (const auto& typeID : GetTypeIndices())
         {
             viewComponentMask.set(ecs->componentTypeMap[typeID], true);
         }
 
+        // Iterate over all of the active entities
         for (size_t i = 0; i < ecs->activeEntitySize; ++i)
         {
+            // Compare the entity component mask to the view component mask, skip if its not the same
             if ((ecs->componentMasks[i] & viewComponentMask) != viewComponentMask) continue;
 
             EntityHandle entity = ecs->activeEntities[i];
+
+            // Invoke the function
             std::apply(func, std::tuple_cat(std::make_tuple(entity), MakeComponentTuple(entity, componentIds)));
         }
     }

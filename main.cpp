@@ -72,12 +72,14 @@ int main()
             position->Print(entityHandles[i]);
         }
 
+        // print our position view
         std::cout << "Printing View Data for entities\n";
         auto positionView = ecs->GetView<Position>();
         positionView.Each([&](const EntityHandle& entity, const Position& position) {
             position.Print(entity);
         });
 
+        // print our position + rotation view, and mutate the state
         auto positionRotationView = ecs->GetView<Position, Rotation>();
         positionRotationView.Each([&](const EntityHandle& entity, Position& position, Rotation& rotation)
         {
@@ -88,6 +90,7 @@ int main()
             position.x = -1 * static_cast<int>(entity);
         });
 
+        // print our updated Position and Rotation
         auto positionRotationView2 = ecs->GetView<Position, Rotation>();
         positionRotationView2.Each([&](const EntityHandle& entity, const Position& position, const Rotation& rotation)
         {
