@@ -13,13 +13,14 @@
 template<typename... TComponents>
 class EntityView;
 
-class IComponentInterface {
+// Base type
+class IComponentContainerInterface {
 public:
-    virtual ~IComponentInterface() = default;
+    virtual ~IComponentContainerInterface() = default;
 };
 
 template <typename TComponent>
-class ComponentContainer final : public IComponentInterface
+class ComponentContainer final : public IComponentContainerInterface
 {
 public:
     ComponentContainer() : size(0) {}
@@ -167,7 +168,7 @@ private:
     std::array<ComponentMask, MAX_ENTITIES> componentMasks{};
 
     std::unordered_map<EntityHandle, size_t> activeEntityToIndexMap;
-    std::unordered_map<ComponentTypeId, std::shared_ptr<IComponentInterface>> componentContainers{};
+    std::unordered_map<ComponentTypeId, std::shared_ptr<IComponentContainerInterface>> componentContainers{};
     std::unordered_map<ComponentTypeId, ComponentType> componentTypeMap;
 
     template<typename TComponent>
@@ -201,7 +202,7 @@ private:
     friend class HelloECS;
 
     HelloECS* ecs;
-    std::array<IComponentInterface*, sizeof...(TComponents)> viewPools;
+    std::array<IComponentContainerInterface*, sizeof...(TComponents)> viewPools;
 
     template<size_t Index>
     auto GetPoolAt()
