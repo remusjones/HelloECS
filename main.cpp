@@ -8,19 +8,25 @@ struct Position
     int x = 0;
     int y = 0;
 
-    void Print() const
+    void Print(const EntityHandle& ID) const
     {
-        std::cout << "Position: (" << x << ", " << y << ")\n";
+        std::cout << ID << " - Position: (" << x << ", " << y << ")\n";
+    }
+};
+
+struct Rotation
+{
+    int facing = 0;
+
+    void Print(const EntityHandle& ID) const
+    {
+        std::cout << ID << " - Facing: (" << facing << ")\n";
     }
 };
 
 int main()
 {
-    std::unique_ptr<ECS<HelloECS>> ecs = std::make_unique<HelloECS>();
-
-    const bool initSuccess = ecs->InitECS();
-    assert(initSuccess);
-
+    std::unique_ptr<HelloECS> ecs = std::make_unique<HelloECS>();
     {
         std::array<EntityHandle, 1000> entityHandles{};
 
@@ -32,6 +38,12 @@ int main()
             entityHandles[i] = entity;
             Position position{static_cast<int>(i), static_cast<int>(i * 2)};
             ecs->AddComponent(entity, position);
+
+            if (i % 3 == 0)
+            {
+                Rotation rotation {static_cast<int>(i * 100)};
+                ecs->AddComponent(entity, rotation);
+            }
         }
 
         // Print the data fetched from the ECS
@@ -40,7 +52,7 @@ int main()
         {
             const Position* position = ecs->GetComponent<Position>(entityHandles[i]);
             assert(position != nullptr);
-            position->Print();
+            position->Print(entityHandles[i]);
         }
 
         // Mutate the data
@@ -57,11 +69,32 @@ int main()
         {
             const Position* position = ecs->GetComponent<Position>(entityHandles[i]);
             assert(position != nullptr);
-            position->Print();
+            position->Print(entityHandles[i]);
         }
 
+        std::cout << "Printing View Data for entities\n";
+        auto positionView = ecs->GetView<Position>();
+        positionView.Each([&](const EntityHandle& entity, const Position& position) {
+            position.Print(entity);
+        });
+
+        auto positionRotationView = ecs->GetView<Position, Rotation>();
+        positionRotationView.Each([&](const EntityHandle& entity, Position& position, Rotation& rotation)
+        {
+            position.Print(entity);
+            rotation.Print(entity);
+
+            rotation.facing = -100 * static_cast<int>(entity);
+            position.x = -1 * static_cast<int>(entity);
+        });
+
+        auto positionRotationView2 = ecs->GetView<Position, Rotation>();
+        positionRotationView2.Each([&](const EntityHandle& entity, const Position& position, const Rotation& rotation)
+        {
+            position.Print(entity);
+            rotation.Print(entity);
+        });
+
     }
-    const bool shutdownSuccess = ecs->ShutdownECS();
-    assert(shutdownSuccess);
     return 0;
 }

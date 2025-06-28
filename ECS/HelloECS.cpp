@@ -4,21 +4,7 @@
 
 #include "HelloECS.h"
 
-uint64_t HelloECS::handleCount = 1;
-
-bool HelloECS::InitECS()
+HelloECS::HelloECS() : handleCount(0), componentCount(0), activeEntitySize(0)
 {
-    return true;
-}
-
-bool HelloECS::ShutdownECS()
-{
-    componentContainers.clear();
-    return true;
-}
-
-EntityHandle HelloECS::CreateEntity()
-{
-    EntityHandle newEntityHandle = handleCount++;
-    return entities.emplace_back(newEntityHandle);
+    activeEntities.fill(INVALID_ENTITY);
 }
