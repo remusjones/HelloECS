@@ -76,7 +76,10 @@ class HelloECS
     friend class EntityView;
 
 public:
-    HelloECS();
+    HelloECS() : handleCount(0), componentCount(0), activeEntitySize(0)
+    {
+        activeEntities.fill(INVALID_ENTITY);
+    }
 
     template <typename TComponent>
     void RegisterComponent()
