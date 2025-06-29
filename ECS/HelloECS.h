@@ -150,7 +150,7 @@ public:
     {
         // Increment sizes, and entity count
         const EntityHandle newEntity = ++handleCount;
-        const size_t newEntityIndex = ++activeEntitySize;
+        const size_t newEntityIndex = activeEntitySize;
 
         // Update arrays
         activeEntities[newEntityIndex] = newEntity;
@@ -159,6 +159,7 @@ public:
         // Update the index to entity map
         activeEntityToIndexMap[newEntity] = newEntityIndex;
 
+        activeEntitySize++;
         return newEntity;
     }
 
