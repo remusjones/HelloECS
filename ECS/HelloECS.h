@@ -32,7 +32,7 @@ class ComponentContainer final : public IComponentContainerInterface
 public:
     ComponentContainer() : size(0) {}
 
-    TComponent& Add(const EntityHandle& entity, TComponent& component)
+    TComponent* Add(const EntityHandle& entity, TComponent& component)
     {
         // Adds the new component to the array, and adds the lookups
         size_t newEntityIndex = size;
@@ -43,7 +43,7 @@ public:
 
         ++size;
 
-        return components[newEntityIndex];
+        return &components[newEntityIndex];
     }
 
     TComponent* Get(const EntityHandle& Entity)
@@ -55,7 +55,7 @@ public:
     {
         // Swaps the removed entity to the last index, and updates the maps
         size_t removeIndex = entityToIndexMap[entity];
-        size_t lastIndex = --size;
+        size_t lastIndex = size--;
         components[removeIndex] = std::move(components[lastIndex]);
 
         const EntityHandle swappedEntity = indexToEntityMap[lastIndex];
@@ -102,11 +102,11 @@ public:
         // Gets the hash code for the provided Type, and registers the container
         ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
         componentTypeMap.insert({componentTypeId, ++componentCount});
-        componentContainers.insert({componentTypeId, std::make_shared<ComponentContainer<TComponent>>()});
+        componentContainers.insert({componentTypeId, std::make_unique<ComponentContainer<TComponent>>()});
     }
 
     template <typename TComponent>
-    void AddComponent(const EntityHandle& entity, TComponent& component)
+    TComponent* AddComponent(const EntityHandle& entity, TComponent& component)
     {
         // Branch and register the component if the type isn't already registered
         // This could be explicit instead to avoid this runtime branch in a hotpath
@@ -115,11 +115,13 @@ public:
 
         // Add the component to the entity
         auto container = GetContainer<TComponent>();
-        container->Add(activeEntities[activeEntityToIndexMap[entity]], component);
+        TComponent* newComponent = container->Add(activeEntities[activeEntityToIndexMap[entity]], component);
 
         // Update the component mask
         ComponentMask& componentMask = GetComponentMask(entity);
         componentMask.set(componentTypeMap[componentTypeId], true);
+
+        return newComponent;
     }
 
     template<typename TComponent>
@@ -129,7 +131,7 @@ public:
     }
 
     template <typename TComponent>
-    void Remove(const EntityHandle& entity)
+    void RemoveComponent(const EntityHandle& entity)
     {
         // Removes the data to this entity
         auto container = GetContainer<TComponent>();
@@ -172,7 +174,7 @@ public:
     {
         // Find our entity, and our end entity
         const size_t targetIndex = activeEntityToIndexMap[entity];
-        const size_t endIndex = activeEntitySize;
+        const size_t endIndex = activeEntitySize - 1;
         const EntityHandle swappedEntity = activeEntities[endIndex];
 
         // Swap the entity data to the end of the arrays
@@ -189,11 +191,11 @@ public:
 
 private:
     template<typename TComponent>
-    std::shared_ptr<ComponentContainer<TComponent>> GetContainer()
+    ComponentContainer<TComponent>* GetContainer()
     {
         // Lookup our Component Container by using our component hash code
         const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
-        return std::static_pointer_cast<ComponentContainer<TComponent>>(componentContainers[componentTypeId]);
+        return static_cast<ComponentContainer<TComponent>*>(componentContainers[componentTypeId].get());
     }
 
     EntityHandle handleCount;
@@ -204,7 +206,7 @@ private:
     std::array<ComponentMask, MAX_ENTITIES> componentMasks{};
 
     std::unordered_map<EntityHandle, size_t> activeEntityToIndexMap;
-    std::unordered_map<ComponentTypeId, std::shared_ptr<IComponentContainerInterface>> componentContainers{};
+    std::unordered_map<ComponentTypeId, std::unique_ptr<IComponentContainerInterface>> componentContainers{};
     std::unordered_map<ComponentTypeId, ComponentType> componentTypeMap;
 
 };
@@ -230,7 +232,7 @@ template <typename... TComponents>
 class EntityView
 {
 public:
-    EntityView(HelloECS* inECS) : ecs(inECS), viewPools{ecs->GetContainer<TComponents>().get()...}
+    EntityView(HelloECS* inECS) : ecs(inECS), viewPools{ecs->GetContainer<TComponents>()...}
     {
     }
 
@@ -268,10 +270,10 @@ private:
             viewComponentMask.set(ecs->componentTypeMap[typeID], true);
         }
 
-        // Iterate over all of the active entities
+        // Iterate over all the active entities
         for (size_t i = 0; i < ecs->activeEntitySize; ++i)
         {
-            // Compare the entity component mask to the view component mask, skip if its not the same
+            // Compare the entity component mask to the view component mask, skip if it's not the same
             if ((ecs->componentMasks[i] & viewComponentMask) != viewComponentMask) continue;
 
             EntityHandle entity = ecs->activeEntities[i];
