@@ -28,6 +28,10 @@ int main()
 {
     std::unique_ptr<HelloECS> ecs = std::make_unique<HelloECS>();
     {
+        ecs->RegisterComponent<Position>();
+        ecs->RegisterComponent<Rotation>();
+
+
         std::array<EntityHandle, 1000> entityHandles{};
 
         // Initialize the data

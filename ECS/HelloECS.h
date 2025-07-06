@@ -111,7 +111,10 @@ public:
         // Branch and register the component if the type isn't already registered
         // This could be explicit instead to avoid this runtime branch in a hotpath
         const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
+
+#if AUTO_REGISTRATION
         if (!componentContainers.contains(componentTypeId)) RegisterComponent<TComponent>();
+#endif
 
         // Add the component to the entity
         auto container = GetContainer<TComponent>();
@@ -122,6 +125,24 @@ public:
         componentMask.set(componentTypeMap[componentTypeId], true);
 
         return newComponent;
+    }
+
+    template<typename TComponent>
+    bool HasComponent(const EntityHandle& entity)
+    {
+        const ComponentMask& componentMask = GetComponentMask(entity);
+        const ComponentTypeId componentTypeId = typeid(TComponent).hash_code();
+        return componentMask.test(componentTypeMap[componentTypeId]);
+    }
+
+    template<typename... TComponents>
+    bool Matches(const EntityHandle& entity)
+    {
+        const ComponentMask& entityMask = GetComponentMask(entity);
+        ComponentMask requiredMask;
+
+        (requiredMask.set(componentTypeMap[typeid(TComponents).hash_code()], true), ...);
+        return (entityMask & requiredMask) == requiredMask;
     }
 
     template<typename TComponent>
@@ -201,6 +222,7 @@ private:
     EntityHandle handleCount;
     ComponentType componentCount;
 
+    // todo: currently there's no way to recycle entity handles which should be resolved with a cyclic container
     size_t activeEntitySize;
     std::array<EntityHandle, MAX_ENTITIES> activeEntities{};
     std::array<ComponentMask, MAX_ENTITIES> componentMasks{};
@@ -271,6 +293,8 @@ private:
         }
 
         // Iterate over all the active entities
+        // todo: this is relatively expensive when we have a large amount of entities
+        // Should consider ways to partition the query
         for (size_t i = 0; i < ecs->activeEntitySize; ++i)
         {
             // Compare the entity component mask to the view component mask, skip if it's not the same
