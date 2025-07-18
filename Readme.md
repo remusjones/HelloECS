@@ -3,6 +3,10 @@
 
 <img width="1734" height="772" alt="8OROX1WWRg" src="https://github.com/user-attachments/assets/5d46407c-4b3f-4830-a5b3-c89244a195d8" />
 
+## Outcomes
+> This project allowed me to gain a familarity with ECS that I would otherwise not have.
+> I developed this alongside a project which allowed me to iterate and improve the ECS, and API while identifying bugs.
+
 ## References and Material
 
 | DoD references         | Link                                        |
