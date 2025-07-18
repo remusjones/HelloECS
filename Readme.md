@@ -1,5 +1,9 @@
 ﻿# Hello ECS
-> Hello ECS is an attempt to create a simple ECS (Entity Component System) framework
+> Hello ECS is my implementation of a Sparse Set ECS for better understanding of Data Oriented Design concepts and development
+
+<img width="1734" height="772" alt="8OROX1WWRg" src="https://github.com/user-attachments/assets/5d46407c-4b3f-4830-a5b3-c89244a195d8" />
+
+## References and Material
 
 | DoD references         | Link                                        |
 | ---------------------- | --------------------------------------------|
@@ -15,4 +19,3 @@
 | ECS Blog        | https://austinmorlan.com/posts/entity_component_system/                 |
 | EnTT            | https://github.com/skypjack/entt                                        |
 | Flecs           | https://github.com/SanderMertens/flecs                                  |
-
