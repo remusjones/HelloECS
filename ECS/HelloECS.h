@@ -9,6 +9,7 @@
 #include <memory>
 #include <typeindex>
 #include <unordered_map>
+#include <array>
 
 template<typename... TComponents>
 class EntityView;

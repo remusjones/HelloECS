@@ -10,3 +10,6 @@ add_library(HelloECS STATIC
 )
 
 target_include_directories(HelloECS PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(HelloECSApp main.cpp)
+target_link_libraries(HelloECSApp HelloECS)
